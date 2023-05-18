@@ -5,7 +5,9 @@ const app = express();
 
 let galaxyData = {};
 
-app.get("/galaxy", (req, res) => {
+app.use(express.static('src'));
+
+app.get("/galaxy_data", (req, res) => {
     res.status(200);
     res.header("Content-Type", "application/json");
     res.send(galaxyData);
