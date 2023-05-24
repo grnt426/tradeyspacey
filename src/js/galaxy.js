@@ -2,8 +2,8 @@ $( document ).ready( processData );
 
 const HOSTNAME = "http://localhost:8080";
 
-let cameraPos = {x:625, y:625};
-const CAMERA_SPEED = 1;
+let cameraPos = {x:0, y:0};
+const CAMERA_SPEED = 5;
 
 let controller = {
     "s": {pressed:false, velocity:{x:0, y:CAMERA_SPEED}},
@@ -11,6 +11,13 @@ let controller = {
     "d": {pressed:false, velocity:{x:CAMERA_SPEED, y:0}},
     "w": {pressed:false, velocity:{x:0, y:-1*CAMERA_SPEED}}
 }
+
+const ORIG_CAM_VEC = {x:0, y:0};
+let moveCameraVector = {x:0, y:0};
+
+let zoom = false;
+const MAX_ZOOM_LEVEL = 23;
+let zoomLevel = MAX_ZOOM_LEVEL;
 
 let galaxyData = {};
 let canvas, context;
@@ -30,6 +37,8 @@ function processData() {
     getGalaxyData();
     canvas = $("#mapCanvas").get(0);
     context = canvas.getContext("2d");
+    cameraPos.x = canvas.width / 2;
+    cameraPos.y = canvas.height / 2;
     setupListeners();
 }
 
@@ -51,11 +60,21 @@ function setupListeners() {
             console.log("unknown key, ignoring");
     });
     canvas.addEventListener('keyup', function(event) {
-        if(event.key in controller)
+        if(event.key in controller) {
             controller[event.key].pressed = false;
+        }
         else
             console.log("unknown key, ignoring");
     });
+
+    canvas.addEventListener('wheel', function(event){
+
+        // Prevent the browser window scrolling
+        event.preventDefault();
+
+        zoom = event.deltaY;
+
+    }, false);
 }
 
 function gameLoop() {
@@ -64,20 +83,41 @@ function gameLoop() {
 }
 
 function handleController() {
+    moveCameraVector.x = 0;
+    moveCameraVector.y = 0;
+    
     Object.values(controller).forEach(control =>  {
         if(control.pressed) {
-            cameraPos.x += control.velocity.x;
-            cameraPos.y += control.velocity.y;
+            moveCameraVector.x += control.velocity.x;
+            moveCameraVector.y += control.velocity.y;
         }
     });
+
+    if(zoom) {
+        zoomLevel += (zoom * 0.04);
+        if(zoomLevel < 2)
+            zoomLevel = 2;
+        if(zoomLevel > MAX_ZOOM_LEVEL)
+            zoomLevel = MAX_ZOOM_LEVEL;
+
+        zoom = false;
+    }
+
+    cameraPos.x -= moveCameraVector.x;
+    cameraPos.y -= moveCameraVector.y;
+    if(moveCameraVector.x !== 0 || moveCameraVector.y !== 0)
+        console.log(JSON.stringify(moveCameraVector) + " '" + JSON.stringify(cameraPos) + "' " + zoomLevel);
+    
+    moveCameraVector = ORIG_CAM_VEC;
 }
 
 function paint() {
     clear();
+    clear();
     Object.values(galaxyData).forEach(sys => {
         if(sys != null) {
-            let x = sys.x / 17 + cameraPos.x;
-            let y = sys.y / 17 + cameraPos.y;
+            let x = sys.x / zoomLevel + cameraPos.x;
+            let y = sys.y / zoomLevel + cameraPos.y;
             let type = sys.type;
             let color = star_types[type];
             context.beginPath();
